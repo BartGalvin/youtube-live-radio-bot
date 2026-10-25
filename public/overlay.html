@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live Radio Stream Overlay</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --paper: rgba(11, 12, 17, 0.92);
+        --line: rgba(255, 255, 255, 0.14);
+        --text: #fbfaf7;
+        --muted: #b8b9c0;
+        --hot: #ff4f6d;
+        --cool: #35d7d0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+
+      body.preview {
+        background:
+          radial-gradient(circle at 20% 18%, rgba(53, 215, 208, 0.1), transparent 28%),
+          linear-gradient(145deg, #1f2330, #0e1016 62%);
+      }
+
+      .now-playing {
+        position: absolute;
+        left: 3.2vw;
+        bottom: 4.8vh;
+        width: min(660px, 56vw);
+        padding: 20px 24px 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        color: var(--text);
+        background:
+          linear-gradient(115deg, rgba(255, 79, 109, 0.1), transparent 42%),
+          var(--paper);
+        box-shadow: 0 18px 54px rgba(0, 0, 0, 0.32);
+        backdrop-filter: blur(14px);
+        transform: translateY(24px);
+        opacity: 0;
+        transition:
+          opacity 280ms ease,
+          transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .now-playing.visible {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 760;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--hot);
+        box-shadow: 0 0 0 5px rgba(255, 79, 109, 0.13);
+      }
+
+      .track-title,
+      .track-artist {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .track-title {
+        font-size: clamp(23px, 2.2vw, 36px);
+        font-weight: 790;
+        letter-spacing: -0.035em;
+        line-height: 1.06;
+      }
+
+      .track-artist {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: clamp(16px, 1.35vw, 22px);
+        font-weight: 540;
+      }
+
+      .votes {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        margin-top: 17px;
+      }
+
+      .vote-count {
+        min-width: 34px;
+        font-size: 14px;
+        font-weight: 750;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .vote-count.dislikes {
+        text-align: right;
+        color: #cbcbd1;
+      }
+
+      .vote-count.likes {
+        color: var(--cool);
+      }
+
+      .vote-bar {
+        display: flex;
+        height: 7px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .vote-bar-likes {
+        width: 50%;
+        background: linear-gradient(90deg, #1dafaa, var(--cool));
+        transition: width 320ms ease;
+      }
+
+      .vote-bar-dislikes {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .command-hint {
+        margin-top: 11px;
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 12px;
+        letter-spacing: 0.015em;
+      }
+
+      .alert {
+        position: absolute;
+        top: 7vh;
+        left: 50%;
+        display: grid;
+        grid-template-columns: 5px 1fr;
+        width: min(610px, 62vw);
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        color: var(--text);
+        background: var(--paper);
+        box-shadow: 0 22px 76px rgba(0, 0, 0, 0.42);
+        backdrop-filter: blur(16px);
+        transform: translate(-50%, -28px) scale(0.97);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 250ms ease,
+          transform 350ms cubic-bezier(0.2, 0.85, 0.2, 1);
+      }
+
+      .alert.visible {
+        transform: translate(-50%, 0) scale(1);
+        opacity: 1;
+      }
+
+      .alert-accent {
+        background: linear-gradient(180deg, var(--hot), #ff9a4f);
+      }
+
+      .alert-content {
+        padding: 20px 23px 21px;
+      }
+
+      .alert-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .alert-name {
+        overflow: hidden;
+        font-size: 20px;
+        font-weight: 790;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .alert-amount {
+        flex: none;
+        color: #ffad65;
+        font-size: 18px;
+        font-weight: 820;
+      }
+
+      .alert-message {
+        margin-top: 7px;
+        color: #dddde2;
+        font-size: 17px;
+        line-height: 1.38;
+        overflow-wrap: anywhere;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 1ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="now-playing" id="now-playing" aria-live="polite">
+      <div class="eyebrow">
+        <span class="pulse"></span><span id="channel-label">Now playing</span>
+      </div>
+      <div class="track-title" id="track-title">Waiting for track data</div>
+      <div class="track-artist" id="track-artist">Live radio</div>
+      <div class="votes">
+        <span class="vote-count likes" id="likes">0 ▲</span>
+        <div class="vote-bar" aria-label="Song vote balance">
+          <span class="vote-bar-likes" id="vote-bar-likes"></span>
+          <span class="vote-bar-dislikes"></span>
+        </div>
+        <span class="vote-count dislikes" id="dislikes">▼ 0</span>
+      </div>
+      <div class="command-hint">Vote in chat with !like or !dislike</div>
+    </section>
+
+    <aside class="alert" id="alert" aria-live="assertive">
+      <div class="alert-accent"></div>
+      <div class="alert-content">
+        <div class="alert-heading">
+          <span class="alert-name" id="alert-name"></span>
+          <span class="alert-amount" id="alert-amount"></span>
+        </div>
+        <div class="alert-message" id="alert-message"></div>
+      </div>
+    </aside>
+
+    <script>
+      const elements = {
+        nowPlaying: document.querySelector("#now-playing"),
+        title: document.querySelector("#track-title"),
+        artist: document.querySelector("#track-artist"),
+        likes: document.querySelector("#likes"),
+        dislikes: document.querySelector("#dislikes"),
+        likeBar: document.querySelector("#vote-bar-likes"),
+        alert: document.querySelector("#alert"),
+        alertName: document.querySelector("#alert-name"),
+        alertAmount: document.querySelector("#alert-amount"),
+        alertMessage: document.querySelector("#alert-message"),
+        channelLabel: document.querySelector("#channel-label"),
+      };
+
+      const query = new URLSearchParams(location.search);
+      if (query.get("preview") === "1") document.body.classList.add("preview");
+
+      function renderState(state) {
+        const track = state.track;
+        elements.nowPlaying.classList.toggle("visible", Boolean(track));
+        if (!track) return;
+
+        elements.title.textContent = track.title;
+        elements.artist.textContent = track.artist;
+        elements.likes.textContent = `${state.votes.likes} ▲`;
+        elements.dislikes.textContent = `▼ ${state.votes.dislikes}`;
+        const ratio = state.votes.total ? (state.votes.likes / state.votes.total) * 100 : 50;
+        elements.likeBar.style.width = `${ratio}%`;
+      }
+
+      const alertQueue = [];
+      let alertActive = false;
+
+      function queueAlert(alert) {
+        alertQueue.push(alert);
+        showNextAlert();
+      }
+
+      function showNextAlert() {
+        if (alertActive || alertQueue.length === 0) return;
+        alertActive = true;
+        const next = alertQueue.shift();
+        elements.alertName.textContent = next.displayName;
+        elements.alertAmount.textContent = next.amountDisplay;
+        elements.alertMessage.textContent = next.message || "Thanks for supporting the station!";
+        elements.alert.classList.add("visible");
+
+        window.setTimeout(() => {
+          elements.alert.classList.remove("visible");
+          window.setTimeout(() => {
+            alertActive = false;
+            showNextAlert();
+          }, 400);
+        }, Math.min(Math.max(next.durationMs || 8000, 3000), 15000));
+      }
+
+      async function start() {
+        let health = {};
+        try {
+          const response = await fetch("/healthz");
+          if (response.ok) health = await response.json();
+        } catch {
+          // The stream can still connect when the public metadata request fails.
+        }
+
+        const channelId =
+          query.get("channel") || health.defaultChannelId || health.channels?.[0] || "main";
+        const channelLabel =
+          health.channelLabels?.[channelId] || humanize(channelId);
+        const brandName = health.brandName || "Live Radio";
+        const appName = health.appName || "Live Radio Bot";
+        elements.channelLabel.textContent = `Now playing on ${channelLabel || brandName}`;
+        elements.artist.textContent = brandName;
+        document.title = `${appName} Overlay`;
+
+        const stream = new EventSource(`/events?channel=${encodeURIComponent(channelId)}`);
+        stream.addEventListener("state", (event) => renderState(JSON.parse(event.data)));
+        stream.addEventListener("alert", (event) => queueAlert(JSON.parse(event.data)));
+      }
+
+      function humanize(value) {
+        return value
+          .split("-")
+          .filter(Boolean)
+          .map((word) => word[0].toUpperCase() + word.slice(1))
+          .join(" ");
+      }
+
+      void start();
+    </script>
+  </body>
+</html>

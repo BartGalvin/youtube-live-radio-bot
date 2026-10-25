@@ -1,0 +1,28 @@
+{
+  "name": "youtube-live-radio-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "YouTube chat bot and OBS overlay service for live radio streams",
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --env-file-if-exists=.env --import tsx --watch src/index.ts",
+    "start": "node --env-file-if-exists=.env dist/src/index.js",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke": "node --import tsx scripts/smoke-test.ts",
+    "youtube:auth": "node --env-file-if-exists=.env --import tsx scripts/youtube-auth.ts"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}
